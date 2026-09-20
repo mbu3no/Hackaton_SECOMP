@@ -12,6 +12,13 @@ from ultralytics import YOLO
 # IDs das classes COCO usadas pelo projeto.
 PERSON_CLASS = 0
 
+# Assentos detectados dinamicamente (modo --dynamic, sem calibracao).
+SEAT_CLASSES = {
+    56: "cadeira",
+    13: "banco",
+    57: "sofa",
+}
+
 # Pertences que caracterizam um assento "marcado" por um objeto.
 BELONGING_CLASSES = {
     24: "mochila",
@@ -24,7 +31,7 @@ BELONGING_CLASSES = {
     73: "livro",
 }
 
-KEEP_CLASSES = [PERSON_CLASS] + list(BELONGING_CLASSES)
+KEEP_CLASSES = [PERSON_CLASS] + list(SEAT_CLASSES) + list(BELONGING_CLASSES)
 
 
 @dataclass
@@ -46,6 +53,18 @@ class Detection:
     @property
     def is_belonging(self) -> bool:
         return self.cls_id in BELONGING_CLASSES
+
+    @property
+    def is_seat(self) -> bool:
+        return self.cls_id in SEAT_CLASSES
+
+    @property
+    def cx(self) -> float:
+        return (self.x1 + self.x2) / 2.0
+
+    @property
+    def cy(self) -> float:
+        return (self.y1 + self.y2) / 2.0
 
 
 class Detector:
@@ -71,7 +90,12 @@ class Detector:
         for box in results[0].boxes:
             cls_id = int(box.cls[0])
             x1, y1, x2, y2 = box.xyxy[0].tolist()
-            label = "pessoa" if cls_id == PERSON_CLASS else BELONGING_CLASSES.get(cls_id, "?")
+            if cls_id == PERSON_CLASS:
+                label = "pessoa"
+            elif cls_id in SEAT_CLASSES:
+                label = SEAT_CLASSES[cls_id]
+            else:
+                label = BELONGING_CLASSES.get(cls_id, "?")
             detections.append(
                 Detection(
                     cls_id=cls_id,

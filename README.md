@@ -63,7 +63,8 @@ descrito em [`docs/arquitetura.md`](docs/arquitetura.md).
 ├── vision/
 │   ├── capture.py          # Fonte de vídeo plugável: webcam | arquivo | RTSP
 │   ├── detector.py         # Wrapper do YOLOv8 (classes COCO)
-│   ├── seats.py            # ROIs + máquina de estados temporal  <- núcleo
+│   ├── seats.py            # ROIs fixas + máquina de estados temporal  <- núcleo
+│   ├── dynamic_seats.py    # Assentos detectados e rastreados em tempo real
 │   ├── floorplan.py        # Homografia: cena → planta baixa
 │   └── pipeline.py         # Orquestra captura → detecção → estado → overlay
 ├── api/
@@ -101,6 +102,23 @@ O peso `yolov8n.pt` (~6 MB) é baixado automaticamente na primeira execução.
 
 ## Execução
 
+Há dois modos. O **dinâmico** dispensa calibração e é o mais simples de rodar.
+
+### Modo dinâmico (recomendado) — sem calibração
+
+O sistema detecta as cadeiras em tempo real. Se a cadeira for movida, o
+monitoramento vai junto; se a câmera mudar, nada quebra. Basta apontar e rodar:
+
+```powershell
+python run.py --source 0 --dynamic --ghost-after 10
+```
+
+Ressalva: quando alguém **senta**, o corpo pode tapar a cadeira e o YOLO perdê-la
+por instantes. O assento guarda a última posição e sobrevive alguns segundos sem
+ser redetectado, então isso não o faz sumir.
+
+### Modo com zonas fixas (calibrado) — mais estável quando a câmera fica parada
+
 **1. Calibrar os assentos** (arraste o mouse sobre cada cadeira, `s` para salvar):
 
 ```powershell
@@ -125,9 +143,10 @@ Dashboard em **http://127.0.0.1:8000**.
 ### Opções úteis
 
 ```powershell
-python run.py --source 1                    # celular como webcam
-python run.py --source samples/demo.mp4     # plano B se a câmera falhar
-python run.py --ghost-after 10              # tolerância menor, para a demo
+python run.py --dynamic                      # cadeiras detectadas em tempo real
+python run.py --source 1                     # celular como webcam
+python run.py --source samples/demo.mp4      # plano B se a câmera falhar
+python run.py --ghost-after 10               # tolerância menor, para a demo
 ```
 
 | Endpoint | Descrição |

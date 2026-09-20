@@ -12,6 +12,7 @@ import cv2
 
 from .capture import VideoSource
 from .detector import Detector
+from .dynamic_seats import DynamicSeatManager
 from .floorplan import FloorPlan
 from .seats import Seat, SeatState, load_seats
 
@@ -35,6 +36,7 @@ class Pipeline:
         ghost_after_s: float = 20.0,
         imgsz: int = 512,
         detect_every_s: float = 0.2,
+        dynamic: bool = False,
     ):
         self.source_str = source
         self.iou_threshold = iou_threshold
@@ -44,8 +46,17 @@ class Pipeline:
         # CPU e travaria o stream. O video continua fluido.
         self.detect_every_s = detect_every_s
 
+        # Modo dinamico: detecta as cadeiras em tempo real, sem ROIs fixas.
+        # Move a cadeira e o monitoramento vai junto; nao precisa calibrar.
+        self.dynamic = dynamic
         self.detector = Detector(model_path=model_path, conf=conf, imgsz=imgsz)
-        self.seats: List[Seat] = load_seats(rois_path)
+
+        if dynamic:
+            self.manager = DynamicSeatManager(seat_ttl_s=8.0)
+            self.seats: List[Seat] = self.manager.seats
+        else:
+            self.manager = None
+            self.seats = load_seats(rois_path)
 
         # Opcional: sem calibracao de homografia o sistema roda igual,
         # apenas sem o painel de planta baixa.
@@ -89,8 +100,12 @@ class Pipeline:
                     t0 = time.perf_counter()
                     detections = self.detector.detect(frame)
 
-                    for seat in self.seats:
-                        seat.observe(detections, self.iou_threshold, self.ghost_after_s)
+                    if self.manager is not None:
+                        self.manager.update(detections, self.iou_threshold, self.ghost_after_s)
+                        self.seats = self.manager.seats
+                    else:
+                        for seat in self.seats:
+                            seat.observe(detections, self.iou_threshold, self.ghost_after_s)
 
                     if self.plan is not None:
                         self._people_plan_xy = [

@@ -21,7 +21,7 @@ def main():
     parser.add_argument("--homography", default="config/homography.json",
                         help="calibracao da planta baixa (tools/plan_picker.py)")
     parser.add_argument("--model", default="yolov8n.pt", help="peso YOLO")
-    parser.add_argument("--conf", type=float, default=0.35, help="confianca minima")
+    parser.add_argument("--conf", type=float, default=0.25, help="confianca minima")
     parser.add_argument("--iou", type=float, default=0.25,
                         help="sobreposicao minima entre deteccao e ROI")
     parser.add_argument("--ghost-after", type=float, default=20.0,
@@ -30,6 +30,9 @@ def main():
                         help="lado da imagem na entrada da rede (menor = mais rapido)")
     parser.add_argument("--detect-every", type=float, default=0.2,
                         help="intervalo minimo entre inferencias, em segundos")
+    parser.add_argument("--dynamic", action="store_true",
+                        help="detecta as cadeiras em tempo real, sem calibracao "
+                             "(move a cadeira e o monitoramento vai junto)")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8000)
     args = parser.parse_args()
@@ -43,6 +46,7 @@ def main():
     os.environ["VF_GHOST_AFTER"] = str(args.ghost_after)
     os.environ["VF_IMGSZ"] = str(args.imgsz)
     os.environ["VF_DETECT_EVERY"] = str(args.detect_every)
+    os.environ["VF_DYNAMIC"] = "1" if args.dynamic else "0"
 
     import uvicorn
 

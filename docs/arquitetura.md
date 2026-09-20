@@ -68,6 +68,20 @@ perder o lugar. Só depois dele a vaga é classificada como fantasma.
 As ROIs são salvas em `[0..1]`, não em pixels. Assim a calibração feita em
 1280×720 continua válida se a câmera abrir em outra resolução no dia do pitch.
 
+### 4b. Modo dinâmico (`--dynamic`) — assentos sem calibração
+
+Alternativa às ROIs fixas: em vez de zonas marcadas à mão, o YOLO detecta as
+**cadeiras** (classes COCO `chair`, `bench`, `couch`) a cada ciclo, e um
+rastreador leve (`vision/dynamic_seats.py`) casa cada detecção com o assento
+conhecido mais próximo pelo centro. Vantagem: mover a cadeira ou a câmera não
+quebra nada, e não há passo de calibração.
+
+O desafio é a **oclusão**: quando uma pessoa senta, o corpo tapa a cadeira e o
+YOLO deixa de detectá-la. Cada assento guarda a última posição e um par de
+cronômetros (`_last_chair_seen`, `_last_alive`) e só é descartado quando a
+cadeira sumiu **e** não há pessoa nem objeto por `seat_ttl_s` segundos. Assim
+uma pessoa sentada mantém o assento vivo mesmo sem a cadeira aparecer.
+
 ### 5. Planta baixa por homografia
 
 A câmera vê o chão em perspectiva: um retângulo real vira um trapézio na

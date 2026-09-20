@@ -33,11 +33,12 @@ pipeline = Pipeline(
     rois_path=os.getenv("VF_ROIS", "config/rois.json"),
     homography_path=os.getenv("VF_HOMOGRAPHY", "config/homography.json"),
     model_path=os.getenv("VF_MODEL", "yolov8n.pt"),
-    conf=float(os.getenv("VF_CONF", "0.35")),
+    conf=float(os.getenv("VF_CONF", "0.25")),
     iou_threshold=float(os.getenv("VF_IOU", "0.25")),
     ghost_after_s=float(os.getenv("VF_GHOST_AFTER", "20")),
     imgsz=int(os.getenv("VF_IMGSZ", "512")),
     detect_every_s=float(os.getenv("VF_DETECT_EVERY", "0.2")),
+    dynamic=os.getenv("VF_DYNAMIC", "0") == "1",
 )
 
 
