@@ -105,9 +105,16 @@ class DynamicSeat:
             self.state = new_state
             self._state_since = now
 
-    def is_stale(self, seat_ttl_s: float) -> bool:
-        """Descartar so quando a cadeira sumiu E nao ha pessoa nem objeto."""
+    def is_stale(self, seat_ttl_s: float, empty_ttl_s: float) -> bool:
+        """Quando descartar o assento.
+
+        Vazio (livre) que perdeu a cadeira: descarta RAPIDO. Sem isso, ao
+        arrastar a cadeira, o assento antigo fica pendurado no lugar de origem.
+        Com pessoa ou objeto: mantem o prazo longo, para sobreviver a oclusao
+        (alguem sentado tapa a cadeira, mas o assento nao pode sumir)."""
         gone = time.time() - self._last_chair_seen
+        if self.state == SeatState.LIVRE:
+            return gone > empty_ttl_s
         idle = time.time() - self._last_alive
         return gone > seat_ttl_s and idle > seat_ttl_s
 
@@ -148,12 +155,13 @@ class DynamicSeatManager:
     so por distancia) e, ao final, mesclar assentos que se sobrepoem.
     """
 
-    def __init__(self, match_dist: float = 0.18, seat_ttl_s: float = 8.0,
-                 min_seat_conf: float = 0.35, dedup_ios: float = 0.5,
-                 merge_ios: float = 0.5, max_area: float = 0.45):
+    def __init__(self, match_dist: float = 0.22, seat_ttl_s: float = 8.0,
+                 empty_ttl_s: float = 1.5, min_seat_conf: float = 0.35,
+                 dedup_ios: float = 0.5, merge_ios: float = 0.5, max_area: float = 0.45):
         self.seats: List[DynamicSeat] = []
         self.match_dist = match_dist        # distancia (norm.) para casar por centro
-        self.seat_ttl_s = seat_ttl_s
+        self.seat_ttl_s = seat_ttl_s        # sobrevivencia com pessoa/objeto (oclusao)
+        self.empty_ttl_s = empty_ttl_s      # sobrevivencia de assento vazio sem cadeira
         self.min_seat_conf = min_seat_conf
         self.dedup_ios = dedup_ios          # sobreposicao acima da qual duas deteccoes sao a mesma
         self.merge_ios = merge_ios          # sobreposicao acima da qual dois assentos sao fundidos
@@ -225,4 +233,5 @@ class DynamicSeatManager:
         for seat in self.seats:
             seat.observe(detections, iou_threshold, ghost_after_s)
         self._merge_overlapping()
-        self.seats = [s for s in self.seats if not s.is_stale(self.seat_ttl_s)]
+        self.seats = [s for s in self.seats
+                      if not s.is_stale(self.seat_ttl_s, self.empty_ttl_s)]
