@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vaga Fantasma</title>
+<!-- CSS inline de proposito: o dashboard precisa funcionar sem internet no dia do pitch. -->
+<style>
+  :root{
+    --bg:#0f172a; --panel:#1e293b; --line:#334155;
+    --txt:#e2e8f0; --dim:#94a3b8;
+    --livre:#10b981; --ocupado:#ef4444; --fantasma:#f59e0b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+       font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{padding:18px 24px;border-bottom:1px solid var(--line);
+         display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+  h1{margin:0;font-size:1.35rem;letter-spacing:-.02em}
+  .sub{color:var(--dim);font-size:.9rem}
+  .pill{margin-left:auto;font-size:.8rem;color:var(--dim);
+        border:1px solid var(--line);border-radius:999px;padding:4px 12px}
+  main{display:grid;grid-template-columns:1.6fr 1fr;gap:20px;padding:20px;max-width:1400px;margin:0 auto}
+  @media(max-width:900px){main{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .card img{width:100%;display:block}
+  .counts{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+  .count{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;text-align:center}
+  .count .n{font-size:2.1rem;font-weight:800;line-height:1}
+  .count .l{font-size:.72rem;text-transform:uppercase;letter-spacing:.09em;color:var(--dim);margin-top:6px}
+  .seat{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--line)}
+  .seat:last-child{border-bottom:none}
+  .dot{width:11px;height:11px;border-radius:50%;flex:none}
+  .seat .id{font-weight:700;width:36px}
+  .seat .meta{color:var(--dim);font-size:.82rem;margin-left:auto;text-align:right}
+  .livre{color:var(--livre)} .ocupado{color:var(--ocupado)} .fantasma{color:var(--fantasma)}
+  .bg-livre{background:var(--livre)} .bg-ocupado{background:var(--ocupado)} .bg-fantasma{background:var(--fantasma)}
+  #alerts{margin-top:20px}
+  .alert{background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.45);
+         border-radius:12px;padding:12px 14px;margin-bottom:10px;font-size:.9rem}
+  .alert b{color:var(--fantasma)}
+  h2{font-size:.78rem;text-transform:uppercase;letter-spacing:.09em;
+     color:var(--dim);margin:0 0 10px;font-weight:600}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Vaga Fantasma</h1>
+  <span class="sub">Ocupação real de salas de estudo &middot; SECOMP 2026</span>
+  <span class="pill" id="status">conectando…</span>
+</header>
+
+<main>
+  <section>
+    <div class="card"><img src="/video_feed" alt="Vídeo anotado ao vivo"></div>
+  </section>
+
+  <section>
+    <div class="counts">
+      <div class="count"><div class="n livre"    id="c-livre">–</div><div class="l">Livres</div></div>
+      <div class="count"><div class="n ocupado"  id="c-ocupado">–</div><div class="l">Ocupados</div></div>
+      <div class="count"><div class="n fantasma" id="c-fantasma">–</div><div class="l">Fantasmas</div></div>
+    </div>
+
+    <h2>Assentos</h2>
+    <div class="card" id="seats"></div>
+
+    <div id="alerts"></div>
+  </section>
+</main>
+
+<script>
+const fmt = s => s < 60 ? `${Math.round(s)}s` : `${Math.floor(s/60)}min ${Math.round(s%60)}s`;
+
+async function tick(){
+  let data;
+  try{
+    const res = await fetch('/api/state');
+    data = await res.json();
+  }catch(e){
+    document.getElementById('status').textContent = 'offline';
+    return;
+  }
+
+  document.getElementById('status').textContent = `${data.fps} FPS · ${data.total} assentos`;
+  for (const k of ['livre','ocupado','fantasma'])
+    document.getElementById('c-'+k).textContent = data.counts[k] ?? 0;
+
+  document.getElementById('seats').innerHTML = data.seats.map(s => {
+    const extra = s.labels.length ? s.labels.join(', ') : '—';
+    return `<div class="seat">
+      <span class="dot bg-${s.state}"></span>
+      <span class="id">${s.id}</span>
+      <span class="${s.state}">${s.state}</span>
+      <span class="meta">${extra} · ${fmt(s.seconds_in_state)}</span>
+    </div>`;
+  }).join('');
+
+  const ghosts = data.seats.filter(s => s.state === 'fantasma');
+  document.getElementById('alerts').innerHTML = ghosts.length
+    ? `<h2>Alertas</h2>` + ghosts.map(s =>
+        `<div class="alert">Assento <b>${s.id}</b> está reservado por
+         ${s.labels.join(', ') || 'um objeto'} há <b>${fmt(s.abandoned_for)}</b>
+         sem ninguém presente.</div>`).join('')
+    : '';
+}
+
+tick();
+setInterval(tick, 500);
+</script>
+</body>
+</html>

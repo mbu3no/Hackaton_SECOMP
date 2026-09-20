@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# Modelos e pesos (baixados em runtime)
+*.pt
+*.onnx
+*.engine
+
+# Midia de teste
+samples/*.mp4
+samples/*.avi
+samples/*.mov
+!samples/.gitkeep
+
+# ROIs calibradas na hora (config/rois.example.json fica versionado)
+config/rois.json
+
+# Saidas
+out/
+*.log
+
+# SO / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

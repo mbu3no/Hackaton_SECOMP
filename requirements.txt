@@ -1,0 +1,11 @@
+# Engine de visao
+ultralytics>=8.3.0
+opencv-python>=4.8.0,<4.11.0
+numpy>=1.26.4
+
+# Backend
+fastapi>=0.110.0
+uvicorn[standard]>=0.28.0
+
+# Utilidades
+pillow>=10.2.0
