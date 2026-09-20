@@ -41,6 +41,10 @@ e libera a vaga na contagem pública.
 - **Associação detecção → assento:** *Intersection over Smaller* (IoS) em vez
   de IoU. As caixas têm escalas muito diferentes (uma pessoa em pé vs. uma
   garrafa), e o IoU seria baixo nos dois casos.
+- **Planta baixa por homografia:** as detecções são projetadas no plano do
+  chão (`cv2.getPerspectiveTransform`), gerando uma vista de cima da sala em
+  tempo real. A posição dos assentos no mapa **não é colocada à mão** — vem da
+  projeção da base de cada ROI.
 - **Camada temporal:** o pipeline de referência é *stateless* — responde
   "o que há neste frame?". O problema da vaga fantasma exige responder
   "há quanto tempo isto está assim?", então cada assento tem uma máquina de
@@ -60,16 +64,21 @@ descrito em [`docs/arquitetura.md`](docs/arquitetura.md).
 │   ├── capture.py          # Fonte de vídeo plugável: webcam | arquivo | RTSP
 │   ├── detector.py         # Wrapper do YOLOv8 (classes COCO)
 │   ├── seats.py            # ROIs + máquina de estados temporal  <- núcleo
+│   ├── floorplan.py        # Homografia: cena → planta baixa
 │   └── pipeline.py         # Orquestra captura → detecção → estado → overlay
 ├── api/
 │   └── main.py             # FastAPI: /health, /api/state, /video_feed (MJPEG)
 ├── web/
 │   └── index.html          # Dashboard (HTML/CSS/JS puro, funciona offline)
 ├── tools/
-│   └── roi_picker.py       # Calibra as ROIs dos assentos com o mouse
+│   ├── roi_picker.py       # Calibra as ROIs dos assentos com o mouse
+│   ├── plan_picker.py      # Calibra a homografia da planta baixa
+│   ├── list_cameras.py     # Descobre os índices de câmera disponíveis
+│   └── smoke_test.py       # Valida a máquina de estados sem câmera
 ├── config/
-│   ├── rois.example.json   # Exemplo versionado
-│   └── rois.json           # Calibração real (ignorada pelo git)
+│   ├── *.example.json      # Exemplos versionados
+│   ├── rois.json           # Calibração real (ignorada pelo git)
+│   └── homography.json     # Calibração da planta (ignorada pelo git)
 ├── samples/                # Vídeos de contingência para a demo
 └── docs/arquitetura.md
 ```
@@ -98,7 +107,14 @@ O peso `yolov8n.pt` (~6 MB) é baixado automaticamente na primeira execução.
 python tools/roi_picker.py --source 0
 ```
 
-**2. Subir a aplicação:**
+**2. Calibrar a planta baixa** (opcional, mas é o painel que mais impressiona) —
+clique os 4 cantos de um retângulo real no chão:
+
+```powershell
+python tools/plan_picker.py --source 0 --largura 6 --profundidade 4
+```
+
+**3. Subir a aplicação:**
 
 ```powershell
 python run.py

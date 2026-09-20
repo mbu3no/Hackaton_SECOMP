@@ -18,6 +18,8 @@ def main():
                         help="indice da webcam, caminho de video ou url rtsp://")
     parser.add_argument("--rois", default="config/rois.json",
                         help="arquivo de ROIs gerado por tools/roi_picker.py")
+    parser.add_argument("--homography", default="config/homography.json",
+                        help="calibracao da planta baixa (tools/plan_picker.py)")
     parser.add_argument("--model", default="yolov8n.pt", help="peso YOLO")
     parser.add_argument("--conf", type=float, default=0.35, help="confianca minima")
     parser.add_argument("--iou", type=float, default=0.25,
@@ -30,6 +32,7 @@ def main():
 
     os.environ["VF_SOURCE"] = args.source
     os.environ["VF_ROIS"] = args.rois
+    os.environ["VF_HOMOGRAPHY"] = args.homography
     os.environ["VF_MODEL"] = args.model
     os.environ["VF_CONF"] = str(args.conf)
     os.environ["VF_IOU"] = str(args.iou)

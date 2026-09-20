@@ -31,6 +31,7 @@ app.add_middleware(
 pipeline = Pipeline(
     source=os.getenv("VF_SOURCE", "0"),
     rois_path=os.getenv("VF_ROIS", "config/rois.json"),
+    homography_path=os.getenv("VF_HOMOGRAPHY", "config/homography.json"),
     model_path=os.getenv("VF_MODEL", "yolov8n.pt"),
     conf=float(os.getenv("VF_CONF", "0.35")),
     iou_threshold=float(os.getenv("VF_IOU", "0.25")),

@@ -39,6 +39,11 @@
   .alert{background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.45);
          border-radius:12px;padding:12px 14px;margin-bottom:10px;font-size:.9rem}
   .alert b{color:var(--fantasma)}
+  #plan-wrap{margin-top:20px;display:none}
+  #plan{width:100%;height:auto;display:block;background:#162032;border-radius:14px;border:1px solid var(--line)}
+  .legend{display:flex;gap:16px;margin-top:10px;font-size:.78rem;color:var(--dim);flex-wrap:wrap}
+  .legend span{display:flex;align-items:center;gap:6px}
+  .legend i{width:10px;height:10px;border-radius:50%;display:inline-block}
   h2{font-size:.78rem;text-transform:uppercase;letter-spacing:.09em;
      color:var(--dim);margin:0 0 10px;font-weight:600}
 </style>
@@ -54,6 +59,18 @@
 <main>
   <section>
     <div class="card"><img src="/video_feed" alt="Vídeo anotado ao vivo"></div>
+
+    <div id="plan-wrap">
+      <h2 style="margin-top:20px">Planta baixa &middot; vista de cima</h2>
+      <svg id="plan" viewBox="0 0 600 400" preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="legend">
+        <span><i class="bg-livre"></i>Livre</span>
+        <span><i class="bg-ocupado"></i>Ocupado</span>
+        <span><i class="bg-fantasma"></i>Fantasma</span>
+        <span><i style="background:#60a5fa"></i>Pessoa detectada</span>
+        <span id="plan-dims"></span>
+      </div>
+    </div>
   </section>
 
   <section>
@@ -97,6 +114,8 @@ async function tick(){
     </div>`;
   }).join('');
 
+  desenhaPlanta(data);
+
   const ghosts = data.seats.filter(s => s.state === 'fantasma');
   document.getElementById('alerts').innerHTML = ghosts.length
     ? `<h2>Alertas</h2>` + ghosts.map(s =>
@@ -104,6 +123,64 @@ async function tick(){
          ${s.labels.join(', ') || 'um objeto'} há <b>${fmt(s.abandoned_for)}</b>
          sem ninguém presente.</div>`).join('')
     : '';
+}
+
+const PW = 600, PH = 400, PAD = 28;
+const COR = {livre:'#10b981', ocupado:'#ef4444', fantasma:'#f59e0b'};
+
+// Converte coordenada normalizada da planta [0..1] em pixel do SVG.
+const px = v => PAD + v * (PW - 2*PAD);
+const py = v => PAD + v * (PH - 2*PAD);
+
+function desenhaPlanta(data){
+  const wrap = document.getElementById('plan-wrap');
+  if(!data.plan){ wrap.style.display = 'none'; return; }
+  wrap.style.display = 'block';
+
+  const [larg, prof] = data.plan.size_m;
+  document.getElementById('plan-dims').textContent = `${larg}m x ${prof}m`;
+
+  let svg = '';
+
+  // Grade de 1 metro: referencia de escala e prova visual de que a
+  // homografia esta correta (a grade sai regular se estiver).
+  for(let m = 0; m <= larg; m++){
+    const x = px(m/larg);
+    svg += `<line x1="${x}" y1="${py(0)}" x2="${x}" y2="${py(1)}" stroke="#243247" stroke-width="1"/>`;
+  }
+  for(let m = 0; m <= prof; m++){
+    const y = py(m/prof);
+    svg += `<line x1="${px(0)}" y1="${y}" x2="${px(1)}" y2="${y}" stroke="#243247" stroke-width="1"/>`;
+  }
+  svg += `<rect x="${px(0)}" y="${py(0)}" width="${px(1)-px(0)}" height="${py(1)-py(0)}"
+           fill="none" stroke="#3a4a63" stroke-width="2" rx="4"/>`;
+
+  // Pessoas detectadas, projetadas pelos pes no plano do chao.
+  for(const [x, y] of (data.people_plan_xy || [])){
+    if(x < -0.2 || x > 1.2 || y < -0.2 || y > 1.2) continue;
+    svg += `<circle cx="${px(x)}" cy="${py(y)}" r="7" fill="#60a5fa" opacity=".85"/>`;
+  }
+
+  // Assentos.
+  for(const s of data.seats){
+    if(!s.plan_xy) continue;
+    const [x, y] = s.plan_xy;
+    if(x < -0.3 || x > 1.3 || y < -0.3 || y > 1.3) continue;
+    const cx = px(x), cy = py(y), cor = COR[s.state];
+    if(s.state === 'fantasma'){
+      svg += `<circle cx="${cx}" cy="${cy}" r="22" fill="${cor}" opacity=".18">
+                <animate attributeName="r" values="16;26;16" dur="1.6s" repeatCount="indefinite"/>
+              </circle>`;
+    }
+    svg += `<rect x="${cx-13}" y="${cy-13}" width="26" height="26" rx="6" fill="${cor}"/>`;
+    svg += `<text x="${cx}" y="${cy+4}" text-anchor="middle" font-size="11"
+             font-weight="700" fill="#0f172a">${s.id}</text>`;
+  }
+
+  // Indicador de onde esta a camera (o lado "frente" da calibracao).
+  svg += `<text x="${PW/2}" y="${PH-6}" text-anchor="middle" font-size="10" fill="#64748b">camera</text>`;
+
+  document.getElementById('plan').innerHTML = svg;
 }
 
 tick();

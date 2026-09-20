@@ -16,8 +16,9 @@ samples/*.avi
 samples/*.mov
 !samples/.gitkeep
 
-# ROIs calibradas na hora (config/rois.example.json fica versionado)
+# Calibracoes feitas na sala (os *.example.json ficam versionados)
 config/rois.json
+config/homography.json
 
 # Saidas
 out/

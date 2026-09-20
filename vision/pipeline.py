@@ -12,6 +12,7 @@ import cv2
 
 from .capture import VideoSource
 from .detector import Detector
+from .floorplan import FloorPlan
 from .seats import Seat, SeatState, load_seats
 
 # Cores em BGR
@@ -27,6 +28,7 @@ class Pipeline:
         self,
         source: str = "0",
         rois_path: str = "config/rois.json",
+        homography_path: str = "config/homography.json",
         model_path: str = "yolov8n.pt",
         conf: float = 0.35,
         iou_threshold: float = 0.25,
@@ -38,6 +40,12 @@ class Pipeline:
 
         self.detector = Detector(model_path=model_path, conf=conf)
         self.seats: List[Seat] = load_seats(rois_path)
+
+        # Opcional: sem calibracao de homografia o sistema roda igual,
+        # apenas sem o painel de planta baixa.
+        self.plan: Optional[FloorPlan] = FloorPlan.load(homography_path)
+        self._seat_plan_xy = self._project_seats()
+        self._people_plan_xy: List[List[float]] = []
 
         self._frame: Optional[bytes] = None
         self._lock = threading.Lock()
@@ -69,6 +77,12 @@ class Pipeline:
                 detections = self.detector.detect(frame)
                 for seat in self.seats:
                     seat.observe(detections, self.iou_threshold, self.ghost_after_s)
+
+                if self.plan is not None:
+                    self._people_plan_xy = [
+                        list(self.plan.project_box((d.x1, d.y1, d.x2, d.y2)))
+                        for d in detections if d.is_person
+                    ]
 
                 now = time.time()
                 self._fps = 1.0 / max(now - last, 1e-6)
@@ -111,15 +125,36 @@ class Pipeline:
         with self._lock:
             return self._frame
 
+    def _project_seats(self) -> Dict[str, List[float]]:
+        """Posicao de cada assento na planta, derivada da homografia.
+
+        Os assentos nao sao posicionados a mao no mapa: a posicao vem da
+        projecao da base da ROI no plano do chao.
+        """
+        if self.plan is None:
+            return {}
+        return {
+            seat.seat_id: list(self.plan.project_box(seat.roi))
+            for seat in self.seats
+        }
+
     def get_state(self) -> Dict:
         counts = {s.value: 0 for s in SeatState}
         for seat in self.seats:
             counts[seat.state.value] += 1
+
+        seats = []
+        for seat in self.seats:
+            item = seat.to_dict()
+            item["plan_xy"] = self._seat_plan_xy.get(seat.seat_id)
+            seats.append(item)
 
         return {
             "fps": round(self._fps, 1),
             "total": len(self.seats),
             "counts": counts,
             "ghost_after_s": self.ghost_after_s,
-            "seats": [seat.to_dict() for seat in self.seats],
+            "seats": seats,
+            "plan": self.plan.to_dict() if self.plan is not None else None,
+            "people_plan_xy": self._people_plan_xy,
         }

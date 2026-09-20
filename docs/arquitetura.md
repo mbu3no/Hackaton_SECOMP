@@ -68,7 +68,24 @@ perder o lugar. Só depois dele a vaga é classificada como fantasma.
 As ROIs são salvas em `[0..1]`, não em pixels. Assim a calibração feita em
 1280×720 continua válida se a câmera abrir em outra resolução no dia do pitch.
 
-### 5. MJPEG + JSON em vez de framework de dashboard
+### 5. Planta baixa por homografia
+
+A câmera vê o chão em perspectiva: um retângulo real vira um trapézio na
+imagem. `cv2.getPerspectiveTransform` sobre 4 cantos conhecidos devolve a
+matriz que desfaz isso, e `cv2.perspectiveTransform` projeta qualquer ponto.
+
+Duas consequências práticas:
+
+- **Só o plano do chão é válido.** Cadeira e pessoa têm altura, então projetar
+  a caixa inteira dá erro. Projetamos sempre a **base** da caixa — o ponto em
+  que o objeto encosta no chão (`FloorPlan.ground_anchor`).
+- **Os assentos não são posicionados à mão no mapa.** A posição sai da
+  projeção da ROI, então a planta acompanha a calibração automaticamente.
+
+A calibração é opcional: sem `config/homography.json` o sistema roda igual e o
+dashboard apenas esconde o painel.
+
+### 6. MJPEG + JSON em vez de framework de dashboard
 
 O navegador consome `<img src="/video_feed">` e faz *polling* de `/api/state`.
 Isso mantém as três etapas do pipeline visivelmente separadas, não exige
@@ -80,6 +97,7 @@ WebRTC nem WebSocket, e o dashboard não depende de CDN — funciona offline.
 |---|---|---|
 | `--conf` | 0.35 | Confiança mínima do YOLO. Menor = mais detecções e mais falsos positivos |
 | `--iou` | 0.25 | IoS mínimo para associar uma detecção a um assento |
+| `--homography` | `config/homography.json` | Calibração da planta. Ausente = painel escondido |
 | `--ghost-after` | 20 s | Tolerância antes de marcar como fantasma. **Em produção seriam minutos**; na demo é reduzido para caber no pitch |
 
 <!-- TODO(equipe): registrar aqui os valores finais usados na demonstração. -->
