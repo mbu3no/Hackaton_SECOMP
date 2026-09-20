@@ -13,17 +13,28 @@ class VideoSource:
     """Abre uma fonte de video e entrega frames BGR.
 
     source:
-        "0", "1", ...        -> indice de webcam (inclui celular via Iriun/DroidCam)
-        "samples/demo.mp4"   -> arquivo de video
-        "rtsp://..."         -> camera IP
+        "0", "1", ...            -> indice de webcam (inclui celular via Iriun/DroidCam)
+        "samples/demo.mp4"       -> arquivo de video
+        "rtsp://..."             -> camera IP
+        "http://IP:8080/video"   -> celular com app tipo "IP Webcam" (MJPEG)
     """
+
+    STREAM_SCHEMES = ("rtsp://", "http://", "https://")
 
     def __init__(self, source: str = "0", width: int = 1280, height: int = 720, loop: bool = True):
         self.source = source
         self.loop = loop
-        self._is_file = not source.isdigit() and not source.startswith("rtsp://")
+        # Um stream de rede nunca deve ser rebobinado como se fosse arquivo.
+        self._is_stream = source.isdigit() or source.startswith(self.STREAM_SCHEMES)
+        self._is_file = not self._is_stream
 
-        if source.isdigit():
+        if source.startswith(self.STREAM_SCHEMES):
+            # Camera de rede (celular como camera IP, ou CFTV do campus)
+            self.cap = cv2.VideoCapture(source)
+            # Buffer curto: sem isso o stream acumula atraso e a demo fica
+            # segundos atras da realidade.
+            self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        elif source.isdigit():
             # CAP_DSHOW evita o delay de ~3s na abertura da webcam no Windows
             backend = cv2.CAP_DSHOW if sys.platform == "win32" else cv2.CAP_ANY
             self.cap = cv2.VideoCapture(int(source), backend)
