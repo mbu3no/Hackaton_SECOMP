@@ -26,6 +26,10 @@ def main():
                         help="sobreposicao minima entre deteccao e ROI")
     parser.add_argument("--ghost-after", type=float, default=20.0,
                         help="segundos sem pessoa ate o assento virar fantasma")
+    parser.add_argument("--imgsz", type=int, default=512,
+                        help="lado da imagem na entrada da rede (menor = mais rapido)")
+    parser.add_argument("--detect-every", type=float, default=0.2,
+                        help="intervalo minimo entre inferencias, em segundos")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8000)
     args = parser.parse_args()
@@ -37,6 +41,8 @@ def main():
     os.environ["VF_CONF"] = str(args.conf)
     os.environ["VF_IOU"] = str(args.iou)
     os.environ["VF_GHOST_AFTER"] = str(args.ghost_after)
+    os.environ["VF_IMGSZ"] = str(args.imgsz)
+    os.environ["VF_DETECT_EVERY"] = str(args.detect_every)
 
     import uvicorn
 

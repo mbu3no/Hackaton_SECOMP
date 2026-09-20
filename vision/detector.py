@@ -49,10 +49,13 @@ class Detection:
 
 
 class Detector:
-    def __init__(self, model_path: str = "yolov8n.pt", conf: float = 0.35):
+    def __init__(self, model_path: str = "yolov8n.pt", conf: float = 0.35, imgsz: int = 640):
         # Na primeira execucao o Ultralytics baixa o peso (~6 MB) automaticamente.
         self.model = YOLO(model_path)
         self.conf = conf
+        # Lado maior da imagem na entrada da rede. Reduzir acelera bastante em
+        # CPU, ao custo de perder objetos pequenos e distantes.
+        self.imgsz = imgsz
 
     def detect(self, frame) -> List[Detection]:
         h, w = frame.shape[:2]
@@ -60,6 +63,7 @@ class Detector:
             frame,
             conf=self.conf,
             classes=KEEP_CLASSES,
+            imgsz=self.imgsz,
             verbose=False,
         )
 

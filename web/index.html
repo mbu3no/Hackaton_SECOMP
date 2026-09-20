@@ -272,7 +272,7 @@ async function tick(){
   }
   $('beacon').className = 'beacon on';
   $('live-txt').innerHTML = 'ao vivo <b>' + d.fps + ' FPS</b>';
-  $('tag-fps').textContent = d.fps + ' FPS';
+  $('tag-fps').textContent = d.fps + ' FPS, detecção ' + d.detect_hz + ' Hz (' + d.detect_ms + ' ms)';
   $('tag-total').textContent = d.total + ' monitorados';
 
   const livre = d.counts.livre, ocup = d.counts.ocupado, fant = d.counts.fantasma;

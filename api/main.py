@@ -36,6 +36,8 @@ pipeline = Pipeline(
     conf=float(os.getenv("VF_CONF", "0.35")),
     iou_threshold=float(os.getenv("VF_IOU", "0.25")),
     ghost_after_s=float(os.getenv("VF_GHOST_AFTER", "20")),
+    imgsz=int(os.getenv("VF_IMGSZ", "512")),
+    detect_every_s=float(os.getenv("VF_DETECT_EVERY", "0.2")),
 )
 
 
@@ -72,7 +74,7 @@ def _mjpeg_frames():
         frame = pipeline.get_jpeg()
         if frame is not None:
             yield b"--frame\r\nContent-Type: image/jpeg\r\n\r\n" + frame + b"\r\n"
-        time.sleep(0.04)  # ~25 fps de envio
+        time.sleep(0.05)  # ~20 fps de envio, para nao disputar CPU com a inferencia
 
 
 @app.get("/video_feed", summary="Stream MJPEG do video anotado")
