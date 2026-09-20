@@ -4,10 +4,14 @@
 Apps de camera IP servem o MJPEG em caminhos diferentes (/live, /video,
 /videofeed...). Em vez de adivinhar, este script testa todos.
 
+Muitos desses apps exigem usuario e senha (HTTP Basic). Nesse caso passe
+as credenciais, que sao embutidas na URL no formato usuario:senha@host.
+
 Uso:
     python tools/test_stream.py 192.168.0.17
     python tools/test_stream.py 192.168.0.17:8081
-    python tools/test_stream.py http://192.168.0.17:8081/live
+    python tools/test_stream.py 192.168.0.17:8081 admin senha123
+    python tools/test_stream.py http://admin:senha123@192.168.0.17:8081/live
 """
 
 import os
@@ -37,18 +41,17 @@ def testa(url: str, timeout_s: float = 6.0):
         cap.release()
 
 
-def candidatas(arg: str):
+def candidatas(arg: str, cred: str = ""):
+    """Gera as URLs a testar. `cred` e "usuario:senha@" ou string vazia."""
     if arg.startswith("http"):
         yield arg
         return
     host = arg.split("/")[0]
-    if ":" in host:
+    portas = [host.split(":")[1]] if ":" in host else PORTAS
+    host = host.split(":")[0]
+    for porta in portas:
         for c in CAMINHOS:
-            yield f"http://{host}{c}"
-    else:
-        for porta in PORTAS:
-            for c in CAMINHOS:
-                yield f"http://{host}:{porta}{c}"
+            yield f"http://{cred}{host}:{porta}{c}"
 
 
 def main():
