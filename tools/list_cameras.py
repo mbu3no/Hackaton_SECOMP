@@ -37,8 +37,13 @@ def main():
         print("e se nenhum outro programa esta segurando a camera.")
     else:
         print(f"Cameras disponiveis: {encontradas}")
-        print(f"\nPara calibrar:  python tools/roi_picker.py --source {encontradas[-1]}")
-        print(f"Para rodar:     python run.py --source {encontradas[-1]}")
+        print("\nNotebooks costumam expor a camera IR do Windows Hello")
+        print("como um indice extra. Se a imagem sair preto e branco ou")
+        print("estourada, tente o proximo indice da lista.\n")
+        for idx in encontradas:
+            print(f"  indice {idx}:")
+            print(f"    python tools/roi_picker.py --source {idx}")
+            print(f"    python run.py --source {idx}")
 
 
 if __name__ == "__main__":
