@@ -130,36 +130,99 @@ class DynamicSeat:
         }
 
 
-class DynamicSeatManager:
-    """Cria, casa, atualiza e descarta assentos a partir das cadeiras detectadas."""
+def _seat_num(seat) -> int:
+    """Ordem de criacao a partir do id 'C<n>', para saber qual e o mais antigo."""
+    try:
+        return int(seat.seat_id[1:])
+    except (ValueError, IndexError):
+        return 0
 
-    def __init__(self, match_dist: float = 0.18, seat_ttl_s: float = 8.0, min_seat_conf: float = 0.30):
+
+class DynamicSeatManager:
+    """Cria, casa, atualiza e descarta assentos a partir das cadeiras detectadas.
+
+    O YOLO frequentemente devolve varias caixas para a MESMA cadeira (a caixa
+    treme entre frames, ou a cadeira e detectada em duas classes). Sem cuidado,
+    cada caixa vira um assento e uma cadeira e contada varias vezes. Por isso ha
+    tres defesas: deduplicar as deteccoes do frame, casar por sobreposicao (nao
+    so por distancia) e, ao final, mesclar assentos que se sobrepoem.
+    """
+
+    def __init__(self, match_dist: float = 0.18, seat_ttl_s: float = 8.0,
+                 min_seat_conf: float = 0.35, dedup_ios: float = 0.5,
+                 merge_ios: float = 0.5, max_area: float = 0.45):
         self.seats: List[DynamicSeat] = []
-        self.match_dist = match_dist        # distancia maxima (norm.) para casar cadeira <-> assento
+        self.match_dist = match_dist        # distancia (norm.) para casar por centro
         self.seat_ttl_s = seat_ttl_s
         self.min_seat_conf = min_seat_conf
+        self.dedup_ios = dedup_ios          # sobreposicao acima da qual duas deteccoes sao a mesma
+        self.merge_ios = merge_ios          # sobreposicao acima da qual dois assentos sao fundidos
+        self.max_area = max_area            # caixa maior que isto (fracao do frame) e descartada
+
+    @staticmethod
+    def _area(box) -> float:
+        return max(0.0, box[2] - box[0]) * max(0.0, box[3] - box[1])
+
+    def _dedup(self, chairs):
+        """NMS simples: mantem as cadeiras de maior confianca e descarta as que
+        se sobrepoem demais a uma ja mantida (a mesma cadeira detectada 2x)."""
+        kept = []
+        for ch in sorted(chairs, key=lambda d: d.conf, reverse=True):
+            box = (ch.x1, ch.y1, ch.x2, ch.y2)
+            if self._area(box) > self.max_area:
+                continue  # caixa gigante (englobaria varias cadeiras)
+            if any(intersection_over_smaller(box, k) >= self.dedup_ios for k in kept):
+                continue
+            kept.append(box)
+        return kept
+
+    def _match(self, box):
+        """Assento existente que melhor corresponde a esta caixa, ou None.
+
+        Prefere sobreposicao (robusto a cadeira que balanca) e, na falta,
+        proximidade de centro (robusto a cadeira arrastada devagar)."""
+        cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
+        best, best_score = None, 0.0
+        for seat in self.seats:
+            score = intersection_over_smaller(box, seat.box)
+            if score >= 0.3 and score > best_score:
+                best, best_score = seat, score
+        if best is not None:
+            return best
+        # sem sobreposicao: tenta pelo centro mais proximo
+        best, best_d = None, self.match_dist
+        for seat in self.seats:
+            d = _center_dist((cx, cy), seat.center)
+            if d < best_d:
+                best, best_d = seat, d
+        return best
+
+    def _merge_overlapping(self):
+        """Funde assentos sobrepostos, mantendo sempre o mais antigo (que ja
+        acumulou estado e cronometro)."""
+        kept: List[DynamicSeat] = []
+        for seat in sorted(self.seats, key=_seat_num):   # mais antigo primeiro
+            if any(intersection_over_smaller(seat.box, k.box) >= self.merge_ios for k in kept):
+                continue
+            kept.append(seat)
+        self.seats = kept
 
     def update(self, detections, iou_threshold: float, ghost_after_s: float):
         chairs = [d for d in detections if d.is_seat and d.conf >= self.min_seat_conf]
+        boxes = self._dedup(chairs)
 
-        # casa cada cadeira detectada com o assento conhecido mais proximo
+        # casa cada caixa (ja deduplicada) com um assento existente, ou cria um
         used = set()
-        for ch in chairs:
-            c = (ch.cx, ch.cy)
-            best, best_d = None, self.match_dist
-            for seat in self.seats:
-                if id(seat) in used:
-                    continue
-                d = _center_dist(c, seat.center)
-                if d < best_d:
-                    best, best_d = seat, d
-            if best is not None:
-                best.update_box((ch.x1, ch.y1, ch.x2, ch.y2))
-                used.add(id(best))
-            else:
-                self.seats.append(DynamicSeat((ch.x1, ch.y1, ch.x2, ch.y2)))
+        for box in boxes:
+            seat = self._match(box)
+            if seat is not None and id(seat) not in used:
+                seat.update_box(box)
+                used.add(id(seat))
+            elif seat is None:
+                self.seats.append(DynamicSeat(box))
 
-        # estado de cada assento e descarte dos obsoletos
+        # estado de cada assento, mescla de duplicados e descarte dos obsoletos
         for seat in self.seats:
             seat.observe(detections, iou_threshold, ghost_after_s)
+        self._merge_overlapping()
         self.seats = [s for s in self.seats if not s.is_stale(self.seat_ttl_s)]

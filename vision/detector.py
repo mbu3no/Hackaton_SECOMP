@@ -13,10 +13,11 @@ from ultralytics import YOLO
 PERSON_CLASS = 0
 
 # Assentos detectados dinamicamente (modo --dynamic, sem calibracao).
+# "sofa" (57) foi removido de proposito: gerava caixas enormes que englobavam
+# varias cadeiras e poluiam a contagem.
 SEAT_CLASSES = {
     56: "cadeira",
     13: "banco",
-    57: "sofa",
 }
 
 # Pertences que caracterizam um assento "marcado" por um objeto.
