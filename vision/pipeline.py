@@ -64,10 +64,12 @@ class Pipeline:
         self._seat_plan_xy = self._project_seats()
         self._people_plan_xy: List[List[float]] = []
 
-        self._frame: Optional[bytes] = None
-        self._lock = threading.Lock()
+        self._frame: Optional[bytes] = None   # JPEG anotado servido no /video_feed
+        self._raw = None                       # ultimo frame BGR cru da camera
+        self._lock = threading.Lock()          # protege _frame
+        self._raw_lock = threading.Lock()      # protege _raw
         self._running = False
-        self._thread: Optional[threading.Thread] = None
+        self._threads: List[threading.Thread] = []
         self._fps = 0.0         # frames de video por segundo
         self._detect_ms = 0.0   # latencia de UMA inferencia
         self._detect_hz = 0.0   # quantas inferencias por segundo de fato ocorrem
@@ -75,60 +77,91 @@ class Pipeline:
     # ------------------------------------------------------------------ ciclo
 
     def start(self):
+        # Tres threads em paralelo: captura, deteccao e exibicao. Assim o video
+        # nao espera a inferencia (que pode levar centenas de ms sobre stream de
+        # rede) e continua fluido enquanto a deteccao roda no seu proprio ritmo.
         self._running = True
-        self._thread = threading.Thread(target=self._loop, daemon=True)
-        self._thread.start()
+        for target in (self._capture_loop, self._detect_loop, self._render_loop):
+            t = threading.Thread(target=target, daemon=True)
+            t.start()
+            self._threads.append(t)
 
     def stop(self):
         self._running = False
-        if self._thread is not None:
-            self._thread.join(timeout=2)
+        for t in self._threads:
+            t.join(timeout=2)
 
-    def _loop(self):
+    def _get_raw(self):
+        with self._raw_lock:
+            return None if self._raw is None else self._raw
+
+    def _capture_loop(self):
+        """So le a camera e guarda o frame mais recente. Nunca bloqueia o resto."""
         with VideoSource(self.source_str) as cam:
-            last_frame_t = time.time()
-            last_detect_t = 0.0
-
             while self._running:
                 frame = cam.read()
                 if frame is None:
-                    time.sleep(0.05)
+                    time.sleep(0.03)
                     continue
+                with self._raw_lock:
+                    self._raw = frame
 
-                now = time.time()
-                if now - last_detect_t >= self.detect_every_s:
-                    t0 = time.perf_counter()
-                    detections = self.detector.detect(frame)
+    def _detect_loop(self):
+        """Roda a inferencia no ritmo dela, sobre o frame mais recente."""
+        last_detect_t = 0.0
+        while self._running:
+            now = time.time()
+            if now - last_detect_t < self.detect_every_s:
+                time.sleep(0.01)
+                continue
+            frame = self._get_raw()
+            if frame is None:
+                time.sleep(0.03)
+                continue
 
-                    if self.manager is not None:
-                        self.manager.update(detections, self.iou_threshold, self.ghost_after_s)
-                        self.seats = self.manager.seats
-                    else:
-                        for seat in self.seats:
-                            seat.observe(detections, self.iou_threshold, self.ghost_after_s)
+            t0 = time.perf_counter()
+            detections = self.detector.detect(frame)
 
-                    if self.plan is not None:
-                        self._people_plan_xy = [
-                            list(self.plan.project_box((d.x1, d.y1, d.x2, d.y2)))
-                            for d in detections if d.is_person
-                        ]
+            if self.manager is not None:
+                self.manager.update(detections, self.iou_threshold, self.ghost_after_s)
+                self.seats = self.manager.seats
+            else:
+                for seat in self.seats:
+                    seat.observe(detections, self.iou_threshold, self.ghost_after_s)
 
-                    self._detect_ms = (time.perf_counter() - t0) * 1000.0
-                    if last_detect_t:
-                        self._detect_hz = 1.0 / max(now - last_detect_t, 1e-6)
-                    last_detect_t = now
+            if self.plan is not None:
+                self._people_plan_xy = [
+                    list(self.plan.project_box((d.x1, d.y1, d.x2, d.y2)))
+                    for d in detections if d.is_person
+                ]
 
-                # O overlay usa o estado corrente dos assentos, que persiste
-                # entre as inferencias, entao o video nao pisca.
-                annotated = self._render(frame)
-                ok, buf = cv2.imencode(".jpg", annotated, [cv2.IMWRITE_JPEG_QUALITY, 75])
-                if ok:
-                    with self._lock:
-                        self._frame = buf.tobytes()
+            self._detect_ms = (time.perf_counter() - t0) * 1000.0
+            if last_detect_t:
+                self._detect_hz = 1.0 / max(now - last_detect_t, 1e-6)
+            last_detect_t = now
 
-                t = time.time()
-                self._fps = 1.0 / max(t - last_frame_t, 1e-6)
-                last_frame_t = t
+    def _render_loop(self):
+        """Desenha o overlay sobre o frame atual e codifica o JPEG, em alta taxa.
+
+        Usa o estado corrente dos assentos, que persiste entre inferencias, entao
+        o video fica fluido mesmo com a deteccao lenta rodando em paralelo."""
+        last_frame_t = time.time()
+        while self._running:
+            frame = self._get_raw()
+            if frame is None:
+                time.sleep(0.03)
+                continue
+
+            annotated = self._render(frame)
+            ok, buf = cv2.imencode(".jpg", annotated, [cv2.IMWRITE_JPEG_QUALITY, 75])
+            if ok:
+                with self._lock:
+                    self._frame = buf.tobytes()
+
+            t = time.time()
+            self._fps = 1.0 / max(t - last_frame_t, 1e-6)
+            last_frame_t = t
+            time.sleep(0.025)   # ~40 fps de teto; nao queima CPU a toa
 
     # ------------------------------------------------------------------ saida
 

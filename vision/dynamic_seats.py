@@ -156,7 +156,7 @@ class DynamicSeatManager:
     """
 
     def __init__(self, match_dist: float = 0.22, seat_ttl_s: float = 8.0,
-                 empty_ttl_s: float = 1.5, min_seat_conf: float = 0.35,
+                 empty_ttl_s: float = 1.5, min_seat_conf: float = 0.25,
                  dedup_ios: float = 0.5, merge_ios: float = 0.5, max_area: float = 0.45):
         self.seats: List[DynamicSeat] = []
         self.match_dist = match_dist        # distancia (norm.) para casar por centro
