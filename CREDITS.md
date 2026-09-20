@@ -21,7 +21,7 @@ e durante a apresentação. Esta é a lista.
 | [Uvicorn](https://www.uvicorn.org/) | Servidor ASGI |
 | [NumPy](https://numpy.org/) | Manipulação de arrays de imagem |
 
-O dashboard é HTML/CSS/JS puro, sem framework nem CDN — decisão tomada para que
+O dashboard é HTML/CSS/JS puro, sem framework nem CDN, decisão tomada para que
 funcione sem internet no dia do pitch.
 
 ## Material de referência do evento
@@ -42,7 +42,7 @@ documentada em `docs/arquitetura.md`.
 Conforme o regulamento, o uso de IA generativa está declarado aqui e será
 explicitado no pitch.
 
-- **Claude (Anthropic), via Claude Code** — usado em duas frentes:
+- **Claude (Anthropic), via Claude Code**, usado em duas frentes:
   1. **Brainstorming e análise de requisitos:** leitura dos PDFs de orientação,
      mapeamento dos critérios de avaliação e comparação de alternativas de
      stack e de tema.
@@ -60,4 +60,4 @@ explicitado no pitch.
 
 ## Equipe
 
-<!-- TODO(equipe): preencher com os nomes dos 5 integrantes. -->
+Matheus, Lucas, Gustavo, Frederico e Robson.
