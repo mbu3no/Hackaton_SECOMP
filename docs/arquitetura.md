@@ -47,7 +47,7 @@ Nos dois casos o objeto *está* no assento, mas o IoU diria que não. Dividir
 pela **menor** das duas áreas responde a pergunta certa: *"esta caixa está
 contida naquela região?"*.
 
-### 3. Estado temporal — a diferença em relação ao pipeline de referência
+### 3. Estado temporal (a diferença em relação ao pipeline de referência)
 
 O exemplo distribuído pela organização é *stateless*: um frame entra, uma
 resposta sai, nada é lembrado. Esse contrato não consegue expressar o nosso
@@ -56,7 +56,7 @@ isolado.
 
 Cada assento mantém:
 
-- **janela deslizante** das últimas N observações, com voto majoritário — impede
+- **janela deslizante** das últimas N observações, com voto majoritário, que impede
   que uma detecção perdida em um ou dois frames faça o assento piscar;
 - **cronômetro de abandono**, zerado sempre que uma pessoa é vista.
 
@@ -68,7 +68,7 @@ perder o lugar. Só depois dele a vaga é classificada como fantasma.
 As ROIs são salvas em `[0..1]`, não em pixels. Assim a calibração feita em
 1280×720 continua válida se a câmera abrir em outra resolução no dia do pitch.
 
-### 4b. Modo dinâmico (`--dynamic`) — assentos sem calibração
+### 4b. Modo dinâmico (`--dynamic`): assentos sem calibração
 
 Alternativa às ROIs fixas: em vez de zonas marcadas à mão, o YOLO detecta as
 **cadeiras** (classes COCO `chair`, `bench`, `couch`) a cada ciclo, e um
@@ -91,7 +91,7 @@ matriz que desfaz isso, e `cv2.perspectiveTransform` projeta qualquer ponto.
 Duas consequências práticas:
 
 - **Só o plano do chão é válido.** Cadeira e pessoa têm altura, então projetar
-  a caixa inteira dá erro. Projetamos sempre a **base** da caixa — o ponto em
+  a caixa inteira dá erro. Projetamos sempre a **base** da caixa, o ponto em
   que o objeto encosta no chão (`FloorPlan.ground_anchor`).
 - **Os assentos não são posicionados à mão no mapa.** A posição sai da
   projeção da ROI, então a planta acompanha a calibração automaticamente.
@@ -103,7 +103,7 @@ dashboard apenas esconde o painel.
 
 O navegador consome `<img src="/video_feed">` e faz *polling* de `/api/state`.
 Isso mantém as três etapas do pipeline visivelmente separadas, não exige
-WebRTC nem WebSocket, e o dashboard não depende de CDN — funciona offline.
+WebRTC nem WebSocket, e o dashboard não depende de CDN, e funciona offline.
 
 ## Parâmetros de operação
 

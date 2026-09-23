@@ -9,7 +9,15 @@ há muito tempo.
 
 ## Equipe
 
-Matheus · Lucas · Gustavo · Frederico · Robson
+Famosinhos do Algoritmo
+
+- Matheus Lucas Tavares Bueno
+- Lucas Assunção Zanon
+- Frederico Pires de Moraes Gomes
+- Robson Dias Carvalho Soares
+- Gustavo Felipe Ferreira Soares
+
+Slides do pitch: [`Equipe_08_Famosinhos_do_Algoritmo.pptx`](Equipe_08_Famosinhos_do_Algoritmo.pptx)
 
 ## Objetivo
 
@@ -51,18 +59,19 @@ exatamente quanta vaga está sendo desperdiçada.
 - **Detecção:** YOLOv8 pré-treinado no COCO, **sem treino nem fine-tuning**.
   Todas as classes necessárias (`person`, `chair`, `backpack`, `handbag`,
   `laptop`, `bottle`, `book`, `cell phone`) já existem no modelo base.
-- **Assentos dinâmicos:** no modo `--dynamic`, o próprio YOLO detecta as
-  cadeiras a cada ciclo e um rastreador leve as segue. Mover a cadeira ou a
-  câmera não quebra nada, e não há passo de calibração.
+- **Assentos dinâmicos (modo usado na demonstração):** no modo `--dynamic`, o
+  próprio YOLO detecta as cadeiras a cada ciclo e um rastreador leve as segue.
+  Mover a cadeira ou a câmera não quebra nada, e não há passo de calibração.
 - **Associação detecção ↔ assento:** *Intersection over Smaller* (IoS) no lugar
   do IoU. As caixas têm escalas muito diferentes (uma pessoa em pé contra uma
   garrafa), e o IoU seria baixo nos dois casos.
 - **Camada temporal:** cada assento tem uma máquina de estados com janela
   deslizante (anti-flicker) e cronômetro de abandono. É o que permite responder
   "há quanto tempo isto está assim?", e não só "o que há neste frame?".
-- **Planta baixa por homografia:** as detecções são projetadas no plano do chão
-  (`cv2.getPerspectiveTransform`), gerando uma vista de cima da sala em tempo
-  real.
+- **Planta baixa por homografia (recurso opcional):** as detecções podem ser
+  projetadas no plano do chão (`cv2.getPerspectiveTransform`), gerando uma vista
+  de cima da sala. Não foi usada na demonstração final, que rodou no modo
+  automático, mas fica disponível no projeto.
 - **Pipeline em paralelo:** captura, detecção e exibição rodam em threads
   separadas, então o vídeo continua fluido mesmo com a inferência rodando ao
   lado e mesmo sobre uma câmera de rede (celular).
